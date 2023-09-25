@@ -201,6 +201,56 @@ struct AfterViewModelTests {
 }
 
 
+// これはダメ
+
+@MainActor
+final class ViewModel2 {
+    private var intValue = 0
+    let handler: (Int) -> Void
+
+    init(handler: @escaping (Int) -> Void) {
+        self.handler = handler
+    }
+
+    func doSomething() {
+        Task {
+            await doSomethingAsync()
+            handler(intValue)
+        }
+    }
+
+    private func doSomethingAsync() async {
+        intValue = 999
+    }
+}
+
+final class BeforeViewModelTests2: XCTestCase {
+    func testDoSomething() async  {
+        let exp = expectation(description: #function)
+        let viewModel = await ViewModel2() { intValue in
+            XCTAssertEqual(intValue, 999)
+            exp.fulfill()
+        }
+
+        await viewModel.doSomething()
+        await fulfillment(of: [exp])
+    }
+}
+
+struct AfterViewModelTests2 {
+    @Test func testDoSomething() async throws {
+        await confirmation(#function) { confirmation in
+            let viewModel = await ViewModel2() { intValue in
+                #expect(intValue == 999)
+                confirmation.confirm()
+            }
+            
+            await viewModel.doSomething()
+        }
+    }
+}
+
+
 
 // MARK: - XCTExpectFailure
 
